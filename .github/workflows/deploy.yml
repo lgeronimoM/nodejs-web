@@ -1,0 +1,63 @@
+name: Build & Deploy NodeJS Web
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    env:
+      DOCKERHUB_REPO: lgeronimom/nodejs-web
+      NAMESPACE: nodejs-web
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+      
+      - name: 🔍 Herramientas
+        run: |
+          kubectl version --client=true
+          kubectl cluster-info
+      
+      - name: 🔐 Login Docker Hub
+        env:
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DH_PASS: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+      
+      - name: 🏗️ Build & Push (tags SHA y latest)
+        env:
+          IMAGE_SHA: ${{ env.DOCKERHUB_REPO }}:${{ github.sha }}
+          IMAGE_LATEST: ${{ env.DOCKERHUB_REPO }}:latest
+        run: |
+          docker build -t "$IMAGE_SHA" .
+          docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
+          docker push "$IMAGE_SHA"
+          docker push "$IMAGE_LATEST"
+          echo "IMAGE_SHA=$IMAGE_SHA" >> $GITHUB_ENV
+      
+      - name: 🚀 Apply manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+      
+      - name: 🔄 Actualizar imagen a la del commit (SHA)
+        run: |
+          kubectl -n $NAMESPACE set image deployment/nodejs-web nodejs-web=${IMAGE_SHA} --record
+      
+      - name: ⏳ Esperar rollout
+        run: kubectl -n $NAMESPACE rollout status deploy/nodejs-web --timeout=300s
+      
+      - name: ✅ Verificación
+        run: |
+          kubectl -n $NAMESPACE get deploy,pods,svc,ingress -o wide
+          kubectl -n $NAMESPACE get events --sort-by=.lastTimestamp | tail -50
+      
+      - name: 🧰 Diagnóstico si falla
+        if: failure()
+        run: |
+          kubectl -n $NAMESPACE describe deployment/nodejs-web || true
+          kubectl -n $NAMESPACE describe pods || true
+          kubectl -n $NAMESPACE get events --sort-by='.lastTimestamp' | tail -150 || true

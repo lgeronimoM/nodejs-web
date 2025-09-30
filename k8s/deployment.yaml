@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-web
+  namespace: nodejs-web
+  labels:
+    app: nodejs-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nodejs-web
+  template:
+    metadata:
+      labels:
+        app: nodejs-web
+    spec:
+      containers:
+      - name: nodejs-web
+        image: lgeronimom/nodejs-web:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: SERVICE_NAME
+          value: "nodejs-web-service"
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5

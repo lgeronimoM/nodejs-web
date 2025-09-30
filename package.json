@@ -1,0 +1,16 @@
+{
+  "name": "test-app-k8s",
+  "version": "1.0.0",
+  "description": "App de prueba para Kubernetes con comunicación entre pods",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
