@@ -5,7 +5,7 @@ const os = require('os');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const POD_NAME = process.env.HOSTNAME || os.hostname();
-const SERVICE_NAME = process.env.SERVICE_NAME || 'test-app-service';
+const SERVICE_NAME = process.env.SERVICE_NAME || 'nodejs-web-service';
 const NAMESPACE = process.env.NAMESPACE || 'default';
 
 // Almacena mensajes recibidos de otros pods
@@ -28,14 +28,17 @@ app.get('/', (req, res) => {
       <title>Pod Communication Test</title>
       <meta http-equiv="refresh" content="5">
       <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        .pod-info { background: #4CAF50; color: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
-        .messages { background: #f5f5f5; padding: 20px; border-radius: 5px; }
-        .message { background: white; padding: 10px; margin: 10px 0; border-left: 4px solid #2196F3; }
-        h1, h2 { margin: 0 0 10px 0; }
-        .timestamp { color: #666; font-size: 0.9em; }
-        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .stat { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 3px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 10px; font-size: 14px; }
+        .pod-info { background: #4CAF50; color: white; padding: 12px; border-radius: 5px; margin-bottom: 10px; }
+        .messages { background: #f5f5f5; padding: 12px; border-radius: 5px; }
+        .message { background: white; padding: 8px; margin: 8px 0; border-left: 3px solid #2196F3; font-size: 13px; }
+        h1 { font-size: 18px; margin-bottom: 8px; }
+        h2 { font-size: 16px; margin-bottom: 8px; }
+        .timestamp { color: #666; font-size: 12px; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; font-size: 13px; }
+        .stat { background: rgba(255,255,255,0.2); padding: 8px; border-radius: 3px; }
+        .footer { text-align: center; margin-top: 10px; color: #666; font-size: 12px; }
       </style>
     </head>
     <body>
@@ -64,9 +67,7 @@ app.get('/', (req, res) => {
         }
       </div>
       
-      <p style="text-align: center; margin-top: 20px; color: #666;">
-        🔄 Auto-refresh cada 5 segundos
-      </p>
+      <p class="footer">🔄 Auto-refresh cada 5 segundos</p>
     </body>
     </html>
   `;

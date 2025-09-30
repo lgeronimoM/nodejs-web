@@ -48,7 +48,13 @@ jobs:
           kubectl -n $NAMESPACE set image deployment/nodejs-web nodejs-web=${IMAGE_SHA} --record
       
       - name: ⏳ Esperar rollout
-        run: kubectl -n $NAMESPACE rollout status deploy/nodejs-web --timeout=300s
+        run: |
+          kubectl -n $NAMESPACE rollout status deploy/nodejs-web --timeout=600s || {
+            echo "⚠️ Rollout timeout, pero verificando estado de pods..."
+            kubectl -n $NAMESPACE get pods
+            kubectl -n $NAMESPACE describe pods | grep -A 5 "Events:"
+            exit 1
+          }
       
       - name: ✅ Verificación
         run: |
@@ -61,3 +67,11 @@ jobs:
           kubectl -n $NAMESPACE describe deployment/nodejs-web || true
           kubectl -n $NAMESPACE describe pods || true
           kubectl -n $NAMESPACE get events --sort-by='.lastTimestamp' | tail -150 || true
+
+          
+      - name: 📊 Reportar estado del deploy
+        if: always()
+        uses: lgeronimoM/encontrack-influx-metrics@v1
+        with:
+          influx_token: ${{ secrets.INFLUX_TOKEN }}
+          job_status: ${{ job.status }}
