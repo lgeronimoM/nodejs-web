@@ -26,7 +26,6 @@ app.get('/', (req, res) => {
     <html>
     <head>
       <title>Pod Communication Test</title>
-      <meta http-equiv="refresh" content="5">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; padding: 10px; font-size: 14px; }
