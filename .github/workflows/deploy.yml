@@ -69,9 +69,9 @@ jobs:
           kubectl -n $NAMESPACE get events --sort-by='.lastTimestamp' | tail -150 || true
 
           
-      - name: 📊 Reportar estado del deploy
+      - name: 📊 Get metric deploy
         if: always()
         uses: lgeronimoM/encontrack-influx-metrics@v1
         with:
-          influx_token: ${{ secrets.INFLUX_TOKEN }}
+          influx_token: p61dgkwKIOcwi3uc4rc7Fi7aRFQXg2xlrhnlMFG-UJcH3NtEL1IVNJuLvk6fE9BbxzOWZvBKyO9rBjPtoZUouw==
           job_status: ${{ job.status }}
