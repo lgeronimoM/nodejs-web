@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
     </head>
     <body>
       <div class="pod-info">
-        <h1>🚀 Pod: ${POD_NAME}</h1>
+        <h1>Pod: ${POD_NAME}</h1>
         <div class="stats">
           <div class="stat"><strong>Uptime:</strong> ${Math.floor(process.uptime())}s</div>
           <div class="stat"><strong>Memory:</strong> ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB</div>
