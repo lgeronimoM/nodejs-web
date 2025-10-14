@@ -71,7 +71,9 @@ jobs:
           
       - name: 📊 Get metric deploy
         if: always()
-        uses: lgeronimoM/encontrack-influx-metrics@v1
+        #uses: lgeronimoM/encontrack-influx-metrics@v1
+        uses: amtelser/metrics-actions@v1
         with:
-          influx_token: p61dgkwKIOcwi3uc4rc7Fi7aRFQXg2xlrhnlMFG-UJcH3NtEL1IVNJuLvk6fE9BbxzOWZvBKyO9rBjPtoZUouw==
+          #influx_token: p61dgkwKIOcwi3uc4rc7Fi7aRFQXg2xlrhnlMFG-UJcH3NtEL1IVNJuLvk6fE9BbxzOWZvBKyO9rBjPtoZUouw==
+          influx_token: OHWlUihiyAbMLJjQmpD0B2FlzL-8JfgI75C3aTVgCHB5AQqwbmz6qcMIU-h1UXQr9sQcNzcA5e4Cb8_xz935AA==
           job_status: ${{ job.status }}
