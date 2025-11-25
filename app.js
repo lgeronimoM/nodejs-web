@@ -42,7 +42,7 @@ app.get('/', (req, res) => {
         </div>
       </div>
 
-      <p class="footer">✅ Página simplificada node JS.</p>
+      <p class="footer">✅ Página simplificada node JS v2.</p>
     </body>
     </html>
   `;
