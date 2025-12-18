@@ -1,4 +1,4 @@
-name: Build & Update Manifests (GitOps con Argo CD)
+name: Build & Update NodeJS Web (GitOps con Argo CD)
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: self-hosted
 
     env:
-      DOCKERHUB_REPO: lgeronimom/nodejs-web   # <-- cambia si tu repo es otro
+      DOCKERHUB_REPO: lgeronimom/nodejs-web   # cámbialo si tu repo de Docker es otro
       NAMESPACE: nodejs-web
 
     steps:
@@ -36,25 +36,13 @@ jobs:
           docker push "$IMAGE_SHA"
           docker push "$IMAGE_LATEST"
 
-          # Exportar IMAGE_SHA para los siguientes pasos
+          # Exportar IMAGE_SHA para que esté disponible en los siguientes steps
           echo "IMAGE_SHA=$IMAGE_SHA" >> "$GITHUB_ENV"
 
-      - name: 📝 Actualizar manifiesto k8s con nueva imagen
+      - name: 📝 Actualizar k8s/deployment.yaml con la nueva imagen
         run: |
           echo "Usando imagen: $IMAGE_SHA"
 
-          # Intentar usar yq del sistema si está instalado
-          if command -v yq &> /dev/null; then
-            echo "Usando yq del sistema: $(command -v yq)"
-            YQ_BIN="$(command -v yq)"
-          else
-            echo "yq no encontrado, descargando localmente..."
-            wget -qO ./yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-            chmod +x ./yq
-            YQ_BIN=./yq
-          fi
-
-          # Validar que el archivo exista
           if [ ! -f k8s/deployment.yaml ]; then
             echo "❌ No existe k8s/deployment.yaml"
             echo "Contenido del repo:"
@@ -62,13 +50,8 @@ jobs:
             exit 1
           fi
 
-          # Actualiza el campo .spec.template.spec.containers[].image en k8s/deployment.yaml
-          # Asegúrate de que el container en el YAML se llame 'nodejs-web'
-          "$YQ_BIN" -i '
-            (.spec.template.spec.containers[]
-              | select(.name == "nodejs-web")
-              | .image) = strenv(IMAGE_SHA)
-          ' k8s/deployment.yaml
+          # Reemplaza la línea 'image: .../nodejs-web:loquesea' por la nueva imagen
+          sed -i "s#image: .*/nodejs-web:.*#image: ${IMAGE_SHA}#g" k8s/deployment.yaml
 
           echo "✅ deployment.yaml actualizado:"
           cat k8s/deployment.yaml
