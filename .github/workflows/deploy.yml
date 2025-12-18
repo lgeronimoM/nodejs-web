@@ -1,23 +1,23 @@
-name: Build & Deploy NodeJS Web
+name: Build & Update Manifests (GitOps con Argo CD)
+
 on:
   push:
     branches: [ main, develop ]
 
 jobs:
   deploy:
+    # Evita loop cuando el propio workflow hace commits con [skip ci]
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: self-hosted
+
     env:
       DOCKERHUB_REPO: lgeronimom/nodejs-web
       NAMESPACE: nodejs-web
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
-      
-      - name: 🔍 Herramientas
-        run: |
-          kubectl version --client=true
-          kubectl cluster-info
-      
+
       - name: 🔐 Login Docker Hub
         env:
           DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -30,45 +30,57 @@ jobs:
           IMAGE_SHA: ${{ env.DOCKERHUB_REPO }}:${{ github.sha }}
           IMAGE_LATEST: ${{ env.DOCKERHUB_REPO }}:latest
         run: |
+          echo "Compilando imagen: $IMAGE_SHA"
           docker build -t "$IMAGE_SHA" .
           docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
           docker push "$IMAGE_SHA"
           docker push "$IMAGE_LATEST"
-          echo "IMAGE_SHA=$IMAGE_SHA" >> $GITHUB_ENV
-      
-      - name: 🚀 Apply manifests
-        run: |
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/ingress.yaml
-      
-      - name: 🔄 Actualizar imagen a la del commit (SHA)
-        run: |
-          kubectl -n $NAMESPACE set image deployment/nodejs-web nodejs-web=${IMAGE_SHA} --record
-      
-      - name: ⏳ Esperar rollout
-        run: |
-          kubectl -n $NAMESPACE rollout status deploy/nodejs-web --timeout=600s || {
-            echo "⚠️ Rollout timeout, pero verificando estado de pods..."
-            kubectl -n $NAMESPACE get pods
-            kubectl -n $NAMESPACE describe pods | grep -A 5 "Events:"
-            exit 1
-          }
-      
-      - name: ✅ Verificación
-        run: |
-          kubectl -n $NAMESPACE get deploy,pods,svc,ingress -o wide
-          kubectl -n $NAMESPACE get events --sort-by=.lastTimestamp | tail -50
-      
-      - name: 🧰 Diagnóstico si falla
-        if: failure()
-        run: |
-          kubectl -n $NAMESPACE describe deployment/nodejs-web || true
-          kubectl -n $NAMESPACE describe pods || true
-          kubectl -n $NAMESPACE get events --sort-by='.lastTimestamp' | tail -150 || true
 
-          
+          # Exportar IMAGE_SHA para los siguientes pasos
+          echo "IMAGE_SHA=$IMAGE_SHA" >> "$GITHUB_ENV"
+
+      - name: 📝 Actualizar manifiesto k8s con nueva imagen
+        run: |
+          echo "Usando imagen: $IMAGE_SHA"
+
+          # Instalar yq si no existe (para editar YAML fácil)
+          if ! command -v yq &> /dev/null; then
+            echo "Instalando yq..."
+            wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            chmod +x /usr/local/bin/yq
+          fi
+
+          # Actualiza el campo .spec.template.spec.containers[].image en k8s/deployment.yaml
+          # Asegúrate de que el container en el YAML se llame 'nodejs-web'
+          yq -i '
+            (.spec.template.spec.containers[] 
+              | select(.name == "nodejs-web") 
+              | .image) = strenv(IMAGE_SHA)
+          ' k8s/deployment.yaml
+
+          echo "deployment.yaml actualizado:"
+          cat k8s/deployment.yaml
+
+      - name: 💾 Commit & push cambios de manifests
+        env:
+          GIT_AUTHOR_NAME: "GitHub Actions"
+          GIT_AUTHOR_EMAIL: "actions@github.com"
+        run: |
+          git status
+
+          # Si no hay cambios (por ejemplo misma imagen), no hacemos commit
+          if git diff --quiet; then
+            echo "No hay cambios en k8s/deployment.yaml, nada que commitear."
+            exit 0
+          fi
+
+          git config user.name "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
+
+          git add k8s/deployment.yaml
+          git commit -m "chore: update nodejs-web image to $IMAGE_SHA [skip ci]"
+          git push
+
       - name: 📊 Get metric deploy
         if: always()
         uses: lgeronimoM/encontrack-influx-metrics@v1
