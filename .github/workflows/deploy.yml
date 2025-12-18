@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main, develop ]
 
+# 👇 Muy importante para permitir git push desde github-actions[bot]
+permissions:
+  contents: write
+
 jobs:
   deploy:
     # Evita loop cuando este mismo workflow haga commit con [skip ci]
@@ -11,8 +15,7 @@ jobs:
     runs-on: self-hosted
 
     env:
-      DOCKERHUB_REPO: lgeronimom/nodejs-web   # cámbialo si tu repo de Docker es otro
-      NAMESPACE: nodejs-web
+      DOCKERHUB_REPO: lgeronimom/nodejs-web   # cambia si tu repo de Docker es otro
 
     steps:
       - name: 📥 Checkout
