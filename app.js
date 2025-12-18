@@ -41,8 +41,8 @@ app.get('/', (req, res) => {
           <div class="stat"><strong>Namespace:</strong> ${NAMESPACE}</div>
         </div>
       </div>
-
-      <p class="footer">Página simplificada: sin envío/recepción de mensajes.</p>
+	  <br>
+      <p class="footer">Página nodejs app web.</p>
     </body>
     </html>
   `;

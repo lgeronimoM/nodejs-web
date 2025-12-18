@@ -4,10 +4,6 @@ on:
   push:
     branches: [ main, develop ]
 
-# 👇 Muy importante para permitir git push desde github-actions[bot]
-permissions:
-  contents: write
-
 jobs:
   deploy:
     # Evita loop cuando este mismo workflow haga commit con [skip ci]
@@ -15,7 +11,7 @@ jobs:
     runs-on: self-hosted
 
     env:
-      DOCKERHUB_REPO: lgeronimom/nodejs-web   # cambia si tu repo de Docker es otro
+      DOCKERHUB_REPO: lgeronimom/nodejs-web   # ajusta si es otro repo
 
     steps:
       - name: 📥 Checkout
@@ -39,7 +35,6 @@ jobs:
           docker push "$IMAGE_SHA"
           docker push "$IMAGE_LATEST"
 
-          # Exportar IMAGE_SHA para que esté disponible en los siguientes steps
           echo "IMAGE_SHA=$IMAGE_SHA" >> "$GITHUB_ENV"
 
       - name: 📝 Actualizar k8s/deployment.yaml con la nueva imagen
@@ -48,7 +43,6 @@ jobs:
 
           if [ ! -f k8s/deployment.yaml ]; then
             echo "❌ No existe k8s/deployment.yaml"
-            echo "Contenido del repo:"
             ls -R
             exit 1
           fi
@@ -59,14 +53,14 @@ jobs:
           echo "✅ deployment.yaml actualizado:"
           cat k8s/deployment.yaml
 
-      - name: 💾 Commit & push cambios de manifests
+      - name: 💾 Commit & push cambios de manifests (usando PAT de servicio)
         env:
-          GIT_AUTHOR_NAME: "GitHub Actions"
-          GIT_AUTHOR_EMAIL: "actions@github.com"
+          GIT_AUTHOR_NAME: "CI Bot"
+          GIT_AUTHOR_EMAIL: "ci-bot@example.com"
+          GH_PUSH_TOKEN: ${{ secrets.GH_PUSH_TOKEN }}
         run: |
           git status
 
-          # Si no hay cambios (por ejemplo misma imagen), no hacemos commit
           if git diff --quiet; then
             echo "No hay cambios en k8s/deployment.yaml, nada que commitear."
             exit 0
@@ -74,6 +68,9 @@ jobs:
 
           git config user.name "$GIT_AUTHOR_NAME"
           git config user.email "$GIT_AUTHOR_EMAIL"
+
+          # Reescribir origin con el token de servicio
+          git remote set-url origin https://x-access-token:${GH_PUSH_TOKEN}@github.com/lgeronimoM/nodejs-web.git
 
           git add k8s/deployment.yaml
           git commit -m "chore: update nodejs-web image to $IMAGE_SHA [skip ci]"
