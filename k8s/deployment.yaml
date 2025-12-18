@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: nodejs-web
-        image: lgeronimom/nodejs-web:latest
+        image: lgeronimom/nodejs-web:df594dda3d4f89def39b1836f525491b7672923a
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
