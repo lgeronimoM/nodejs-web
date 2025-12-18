@@ -1,22 +1,24 @@
-name: Build & Update NodeJS Web (GitOps con Argo CD)
-
+name: Build & Deploy NodeJS Web
 on:
   push:
     branches: [ main, develop ]
 
 jobs:
   deploy:
-    # Evita loop cuando este mismo workflow haga commit con [skip ci]
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: self-hosted
-
     env:
-      DOCKERHUB_REPO: lgeronimom/nodejs-web   # ajusta si es otro repo
+      DOCKERHUB_REPO: lgeronimom/nodejs-web
+      NAMESPACE: nodejs-web
 
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
-
+      
+      - name: 🔍 Herramientas
+        run: |
+          kubectl version --client=true
+          kubectl cluster-info
+      
       - name: 🔐 Login Docker Hub
         env:
           DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -27,58 +29,49 @@ jobs:
       - name: 🏗️ Build & Push (tags SHA y latest)
         env:
           IMAGE_SHA: ${{ env.DOCKERHUB_REPO }}:${{ github.sha }}
-          IMAGE_LATEST: ${{ env.DOCKERHUB_REPO }}:latest
+          IMAGE_LATEST: ${{ env.DOERHUB_REPO }}:latest
         run: |
-          echo "Compilando imagen: $IMAGE_SHA"
           docker build -t "$IMAGE_SHA" .
           docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
           docker push "$IMAGE_SHA"
           docker push "$IMAGE_LATEST"
-
-          echo "IMAGE_SHA=$IMAGE_SHA" >> "$GITHUB_ENV"
-
-      - name: 📝 Actualizar k8s/deployment.yaml con la nueva imagen
+          echo "IMAGE_SHA=$IMAGE_SHA" >> $GITHUB_ENV
+      
+      - name: 🚀 Aplicar manifests Kubernetes
         run: |
-          echo "Usando imagen: $IMAGE_SHA"
-
-          if [ ! -f k8s/deployment.yaml ]; then
-            echo "❌ No existe k8s/deployment.yaml"
-            ls -R
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+      
+      - name: 🎯 Actualizar deployment con imagen SHA
+        run: |
+          kubectl -n $NAMESPACE set image deployment/nodejs-web nodejs-web=${IMAGE_SHA} --record
+      
+      - name: ⏳ Esperar rollout
+        run: |
+          kubectl -n $NAMESPACE rollout status deploy/nodejs-web --timeout=600s || {
+            echo "⚠️ Rollout timeout, mostrando estado de pods..."
+            kubectl -n $NAMESPACE get pods
+            kubectl -n $NAMESPACE describe pods | grep -A 5 "Events:"
             exit 1
-          fi
-
-          # Reemplaza la línea 'image: .../nodejs-web:loquesea' por la nueva imagen
-          sed -i "s#image: .*/nodejs-web:.*#image: ${IMAGE_SHA}#g" k8s/deployment.yaml
-
-          echo "✅ deployment.yaml actualizado:"
-          cat k8s/deployment.yaml
-
-      - name: 💾 Commit & push cambios de manifests (usando PAT de servicio)
-        env:
-          GIT_AUTHOR_NAME: "CI Bot"
-          GIT_AUTHOR_EMAIL: "ci-bot@example.com"
-          GH_PUSH_TOKEN: ${{ secrets.GH_PUSH_TOKEN }}
+          }
+      
+      - name: 🔍 Verificación
         run: |
-          git status
+          kubectl -n $NAMESPACE get deploy,pods,svc,ingress -o wide
+          kubectl -n $NAMESPACE get events --sort-by=.lastTimestamp | tail -50
+      
+      - name: 🧰 Diagnóstico si falla
+        if: failure()
+        run: |
+          kubectl -n $NAMESPACE describe deployment/nodejs-web || true
+          kubectl -n $NAMESPACE describe pods || true
+          kubectl -n $NAMESPACE get events --sort-by='.lastTimestamp' | tail -150 || true
 
-          if git diff --quiet; then
-            echo "No hay cambios en k8s/deployment.yaml, nada que commitear."
-            exit 0
-          fi
-
-          git config user.name "$GIT_AUTHOR_NAME"
-          git config user.email "$GIT_AUTHOR_EMAIL"
-
-          # Reescribir origin con el token de servicio
-          git remote set-url origin https://x-access-token:${GH_PUSH_TOKEN}@github.com/lgeronimoM/nodejs-web.git
-
-          git add k8s/deployment.yaml
-          git commit -m "chore: update nodejs-web image to $IMAGE_SHA [skip ci]"
-          git push
-
-      - name: 📊 Get metric deploy
+      - name: 📊 Registrar métrica del deploy
         if: always()
         uses: lgeronimoM/encontrack-influx-metrics@v1
         with:
-          influx_token: p61dgkwKIOcwi3uc4rc7Fi7aRFQXg2xlrhnlMFG-UJcH3NtEL1IVNJuLvk6fE9BbxzOWZvBKyO9rBjPtoZUouw==
+          influx_token: ${{ secrets.INFLUX_TOKEN }}
           job_status: ${{ job.status }}
