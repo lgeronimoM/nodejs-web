@@ -42,7 +42,7 @@ app.get('/', (req, res) => {
         </div>
       </div>
 
-      <p class="footer">✅ Página simplificada: sin envío/recepción de mensajes.</p>
+      <p class="footer">Página simplificada: sin envío/recepción de mensajes.</p>
     </body>
     </html>
   `;
