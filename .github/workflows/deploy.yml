@@ -6,12 +6,12 @@ on:
 
 jobs:
   deploy:
-    # Evita loop cuando el propio workflow hace commits con [skip ci]
+    # Evita loop cuando este mismo workflow haga commit con [skip ci]
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: self-hosted
 
     env:
-      DOCKERHUB_REPO: lgeronimom/nodejs-web
+      DOCKERHUB_REPO: lgeronimom/nodejs-web   # <-- cambia si tu repo es otro
       NAMESPACE: nodejs-web
 
     steps:
@@ -43,22 +43,34 @@ jobs:
         run: |
           echo "Usando imagen: $IMAGE_SHA"
 
-          # Instalar yq si no existe (para editar YAML fácil)
-          if ! command -v yq &> /dev/null; then
-            echo "Instalando yq..."
-            wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-            chmod +x /usr/local/bin/yq
+          # Intentar usar yq del sistema si está instalado
+          if command -v yq &> /dev/null; then
+            echo "Usando yq del sistema: $(command -v yq)"
+            YQ_BIN="$(command -v yq)"
+          else
+            echo "yq no encontrado, descargando localmente..."
+            wget -qO ./yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            chmod +x ./yq
+            YQ_BIN=./yq
+          fi
+
+          # Validar que el archivo exista
+          if [ ! -f k8s/deployment.yaml ]; then
+            echo "❌ No existe k8s/deployment.yaml"
+            echo "Contenido del repo:"
+            ls -R
+            exit 1
           fi
 
           # Actualiza el campo .spec.template.spec.containers[].image en k8s/deployment.yaml
           # Asegúrate de que el container en el YAML se llame 'nodejs-web'
-          yq -i '
-            (.spec.template.spec.containers[] 
-              | select(.name == "nodejs-web") 
+          "$YQ_BIN" -i '
+            (.spec.template.spec.containers[]
+              | select(.name == "nodejs-web")
               | .image) = strenv(IMAGE_SHA)
           ' k8s/deployment.yaml
 
-          echo "deployment.yaml actualizado:"
+          echo "✅ deployment.yaml actualizado:"
           cat k8s/deployment.yaml
 
       - name: 💾 Commit & push cambios de manifests
